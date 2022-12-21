@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<meta charset=utf-8 />
+<meta name="timeout" content="long">
+<title>Event Timing: eventCounts.</title>
+<script src=/resources/testharness.js></script>
+<script src=/resources/testharnessreport.js></script>
+<script src=/resources/testdriver.js></script>
+<script src=/resources/testdriver-vendor.js></script>
+<script src=/resources/testdriver-actions.js></script>
+<script src=/page-visibility/resources/window_state_context.js></script>
+<script src=resources/event-timing-test-utils.js></script>
+
+<body>
+  <button id='target'>Click me</button>
+
+  <script>
+    let observedEntries = [];
+    const map = new Map();
+    const events = ['pointerdown'];
+
+    promise_test(async t => {
+      assert_implements(window.PerformanceEventTiming, 'Event Timing is not supported.');
+
+      const { minimize, restore } = window_state_context(t);
+      const button = document.getElementById('target');
+
+      const callback = (entryList) => { observedEntries = observedEntries.concat(entryList.getEntries().filter(filterAndAddToMap(events, map))); };
+      const readyToResolve = () => { return observedEntries.length >= 1; };
+      const observerPromise = createPerformanceObserverPromise(['event'], callback, readyToResolve);
+
+      const timeBeforeClick = performance.now();
+      let timeAfterVisibilityFalse;
+      let timeAfterVisibilityTrue;
+      button.addEventListener('pointerdown', async (event) => {
+        document.body.innerText += "Adding content to force rendering";
+
+        // await here will yield to event loop, and end event processing time.
+        await minimize();
+        timeAfterVisibilityFalse = performance.now();
+
+        await restore();
+        timeAfterVisibilityTrue = performance.now();
+      });
+
+      // visibility-state PerformanceEntry would have been more convenient, but
+      // it is not yet available.
+      let timeOfVisibilityFalse;
+      document.addEventListener('visibilitychange', (event) => {
+        if (document.visibilityState !== 'visible') {
+          timeOfVisibilityFalse = performance.now();
+        }
+      });
+
+      await interactAndObserve('tap', button, observerPromise);
+
+      assert_equals(observedEntries.length, 1, "Pointerdown was measured");
+      const entry = observedEntries[0];
+
+      assert_not_equals(timeBeforeClick, undefined);
+      assert_not_equals(timeAfterVisibilityFalse, undefined);
+      assert_not_equals(timeAfterVisibilityTrue, undefined);
+      assert_not_equals(timeOfVisibilityFalse, undefined);
+
+      assert_less_than(
+        entry.processingEnd,
+        timeOfVisibilityFalse,
+        "event handler ends before visibility event fires"
+      );
+      assert_less_than(
+        timeOfVisibilityFalse,
+        timeAfterVisibilityFalse,
+        "visibility event fires before event handler continues"
+      );
+      assert_less_than_equal(
+        entry.startTime + entry.duration,
+        timeAfterVisibilityFalse,
+        "event duration ends before visibility is changed"
+      );
+
+    }, "Event handlers which change visibility should not measure next paint.");
+
+  </script>
+</body>
+
+</html>
