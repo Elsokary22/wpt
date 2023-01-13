@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<link rel=author href="mailto:jarhar@chromium.org">
+<link rel=help href="https://github.com/whatwg/html/pull/8199">
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+
+<dialog autofocus id=autofocusdialog>
+  <button>focusable button</button>
+  <button autofocus class=target>autofocusable button</button>
+</dialog>
+
+<dialog id=keyboardfocusdialog>
+  <button tabindex="-1">mouse focusable button</button>
+  <button class=target>keyboard focusable button</button>
+</dialog>
+
+<dialog id=autofocuswithoutkeyboarddialog>
+  <button>keyboard focusable button</button>
+  <button tabindex="-1" autofocus class=target>mouse focusable autofocus button</button>
+</dialog>
+
+<dialog id=subtree>
+  <div>
+    <button tabindex="-1">mouse focusable button</button>
+    <button class=target>keyboard focusable button</button>
+  </div>
+</dialog>
+
+<dialog id=nestedbuttons>
+  <button tabindex="-1">
+    <span>mouse focusable button</span>
+    <button tabindex="-1">nested mouse focusable button</button>
+  </button>
+  <button class=target>keyboard focusable button</button>
+</dialog>
+
+<script>
+test(t => {
+  const dialog = document.getElementById('autofocusdialog');
+  const target = dialog.querySelector('.target');
+  t.add_cleanup(() => {
+    if (dialog.open)
+      dialog.close();
+  });
+
+  dialog.showModal();
+  assert_equals(document.activeElement, dialog, 'showModal: autofocus dialog should get initial focus.');
+  dialog.close();
+
+  dialog.show();
+  assert_equals(document.activeElement, target, 'show: autofocus dialog should get initial focus.');
+  dialog.close();
+}, 'dialog element with autofocus should get initial focus.');
+
+test(t => {
+  const dialog = document.getElementById('keyboardfocusdialog');
+  const target = dialog.querySelector('.target');
+  t.add_cleanup(() => {
+    if (dialog.open)
+      dialog.close();
+  });
+
+  dialog.showModal();
+  assert_equals(document.activeElement, target, 'showModal: keyboard focusable button should have been focused.');
+  dialog.close();
+
+  dialog.show();
+  assert_equals(document.activeElement, target, 'show: keyboard focusable button should have been focused.');
+  dialog.close();
+}, 'Only keyboard-focusable elements should get dialog initial focus.');
+
+test(() => {
+  const dialog = document.getElementById('autofocuswithoutkeyboarddialog');
+  const target = dialog.querySelector('.target');
+
+  dialog.showModal();
+  assert_equals(document.activeElement, target, 'showModal: autofocus button should have been focused.');
+  dialog.close();
+
+  dialog.show();
+  assert_equals(document.activeElement, target, 'show: autofocus button should have been focused.');
+  dialog.close();
+}, 'Autofocus takes precedence over keyboard-focusable requirement.');
+
+test(() => {
+  const dialog = document.getElementById('subtree');
+  const target = dialog.querySelector('.target');
+
+  dialog.showModal();
+  assert_equals(document.activeElement, target, 'showModal: keyboard focusable button should have been focused.');
+  dialog.close();
+
+  dialog.show();
+  assert_equals(document.activeElement, target, 'show: keyboard focusable button should have been focused.');
+  dialog.close();
+}, 'Only keyboard-focusable elements should get dialog initial focus including in subtrees.');
+
+test(() => {
+  const dialog = document.getElementById('nestedbuttons');
+  const target = dialog.querySelector('.target');
+
+  dialog.showModal();
+  assert_equals(document.activeElement, target, 'showModal: keyboard focusable button should have been focused.');
+  dialog.close();
+
+  dialog.show();
+  assert_equals(document.activeElement, target, 'show: keyboard focusable button should have been focused.');
+  dialog.close();
+}, 'Only keyboard-focusable elements should get dialog initial focus including in nested buttons.');
+</script>
