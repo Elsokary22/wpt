@@ -395,3 +395,35 @@ function interactAndObserve(interactionType, element, observerPromise) {
   }
   return Promise.all([interactionPromise, observerPromise]);
 }
+
+async function verifyInteractionCount(t, expectedCount) {
+  await t.step_wait(() => { return performance.interactionCount >= expectedCount; }, 'Count value did not increase', 10000, 5);
+  assert_equals(performance.interactionCount, expectedCount, 'Count value increased by more than 1');
+}
+
+function interactionCount_test(interactionType, elements, key = '') {
+  return promise_test(async t => {
+    assert_implements(window.PerformanceEventTiming, 'Event Timing is not supported');
+    assert_equals(performance.interactionCount, 0, 'Initial count is not 0');
+
+    const interact = async (element) => {
+      switch (interactionType) {
+        case 'click': {
+          return () => { test_driver.click(element); };
+        }
+        case 'tap': {
+          return () => { tap(element); };
+        }
+        case 'key': {
+          return () => { test_driver.send_keys(element, key); };
+        }
+      }
+    }
+
+    let expectedCount = 1;
+    await elements.forEach(async e => {
+      await interact(e);
+      await verifyInteractionCount(t, expectedCount++);
+    })
+  }, 'Event Timing: verify interaction count update for interaction of type: ' + interactionType);
+}
